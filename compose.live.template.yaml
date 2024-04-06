@@ -1,3 +1,8 @@
+x-awslogs-options: &awslogs-options
+  awslogs-region: ap-northeast-1
+  awslogs-create-group: 'true'
+  tag: '{{ with split .ImageName ":" }}{{join . "_"}}{{end}}-{{.ID}}'
+
 services:
   web:
     image: '{{ .web.image }}'
@@ -11,9 +16,24 @@ services:
       - 80:8080
     depends_on:
       - app
+    restart: always
+    logging:
+      driver: awslogs
+      options:
+        <<: *awslogs-options
+        awslogs-group: /eb-test/${ENVIRONMENT}/web
+        awslogs-datetime-format: '%Y-%m-%dT%H:%M:%S%z'
+
   app:
     image: '{{ .app.image }}'
     env_file:
       - .env
     expose:
       - 9000
+    restart: always
+    logging:
+      driver: awslogs
+      options:
+        <<: *awslogs-options
+        awslogs-group: /eb-test/${ENVIRONMENT}/app
+        awslogs-datetime-format: '%Y-%m-%dT%H:%M:%S.%f%z'
