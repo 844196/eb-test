@@ -22,8 +22,10 @@ phases:
       - env | grep CODEBUILD_
       - echo "ENVIRONMENT=$ENVIRONMENT"
 
-      # Login ECR
+      # Login ECR private
       - aws ecr get-login-password --region $ECR_REGISTRY_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY_HOST
+
+      # Login ECR public (Avoid rate-limit)
       - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       # Determine live image FQIN
@@ -44,4 +46,5 @@ phases:
 
 artifacts:
   files:
+    # Compose v2が入っているので本来なら compose.yaml でも問題ないはずだが、この名前じゃないとシングルコンテナ扱いになって失敗する
     - docker-compose.yaml

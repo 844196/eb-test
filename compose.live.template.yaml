@@ -1,7 +1,7 @@
 x-awslogs-options: &awslogs-options
   awslogs-region: ap-northeast-1
   awslogs-create-group: 'true'
-  tag: '{{ with split .ImageName ":" }}{{join . "_"}}{{end}}-{{.ID}}'
+  tag: '{{with split .ImageName ":"}}{{join . "_"}}{{end}}-{{.ID}}'
 
 services:
   web:
