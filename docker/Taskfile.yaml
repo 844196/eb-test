@@ -26,4 +26,4 @@ tasks:
       yq \
           '.services.web.image = "{{.FQIN_WEB}}" | .services.app.image = "{{.FQIN_APP}}"' \
           ../compose.live.template.yaml \
-        > ../docker-compose.yml
+        > ../docker-compose.yaml
