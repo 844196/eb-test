@@ -42,8 +42,8 @@ phases:
         docker push $FQIN_APP &
         wait
 
-      - mv compose.live.yaml compose.yaml
+      - mv compose.live.yaml docker-compose.yml
 
 artifacts:
   files:
-    - compose.yaml
+    - docker-compose.yml
