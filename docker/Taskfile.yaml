@@ -10,9 +10,6 @@ tasks:
     cmd: docker build --file {{index .MATCH 0}}/Dockerfile --target live --tag {{.FQIN}} ..
 
   build:live:
-    vars:
-      FQIN_WEB: '{{.ECR_REGISTRY_HOST}}/{{.ECR_REGISTRY_REPOSITORY_ROOT}}/web:{{.ENVIRONMENT}}-{{.COMMIT_HASH}}'
-      FQIN_APP: '{{.ECR_REGISTRY_HOST}}/{{.ECR_REGISTRY_REPOSITORY_ROOT}}/app:{{.ENVIRONMENT}}-{{.COMMIT_HASH}}'
     deps:
       - task: build:live:web
         vars:
