@@ -42,9 +42,6 @@ phases:
         docker push $FQIN_APP &
         wait
 
-      # Docker Compose V2 は入っているが、ファイル名は docker-compose.yml にしないと動かない
-      - mv compose.live.yaml docker-compose.yml
-
 artifacts:
   files:
     - docker-compose.yml

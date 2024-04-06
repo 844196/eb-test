@@ -1,6 +1,11 @@
-# cspell:ignore FQIN
+# cspell:ignore errexit, nounset, FQIN
 ---
 version: '3'
+
+set:
+  - errexit
+  - nounset
+  - pipefail
 
 tasks:
   build:live:*:
@@ -18,6 +23,7 @@ tasks:
         vars:
           FQIN: '{{.FQIN_APP}}'
     cmd: | #.sh
-      gojo web=$(gojo image="{{.FQIN_WEB}}") app=$(gojo image="{{.FQIN_APP}}") \
-        | gomplate -c .=stdin:///ctx.json -f ../compose.live.template.yaml \
-        | tee ../compose.live.yaml
+      yq \
+          '.services.web.image = "{{.FQIN_WEB}}" | .services.app.image = "{{.FQIN_APP}}"' \
+          ../compose.live.template.yaml \
+        > ../docker-compose.yml

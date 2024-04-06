@@ -4,5 +4,4 @@ registries:
 packages:
   - name: go-task/task@v3.35.1
   - name: hadolint/hadolint@v2.12.0
-  - name: itchyny/gojo@v0.3.2
-  - name: hairyhenderson/gomplate@v3.11.7
+  - name: mikefarah/yq@v4.43.1
