@@ -1,0 +1,49 @@
+# cspell:ignore FQIN
+---
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    AQUA_ROOT_DIR: /usr/local/share/aquaproj-aqua
+
+phases:
+  install:
+    commands:
+      # Setup aqua
+      - export PATH=${AQUA_ROOT_DIR}/bin:$PATH
+      - curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.0.0/aqua-installer | bash -s -- -v v2.23.0
+      - aqua policy allow
+      - aqua install --only-link
+
+  pre_build:
+    commands:
+      # Output environments variables
+      - env | grep CODEBUILD_
+      - echo "ENVIRONMENT=$ENVIRONMENT"
+
+      # Login ECR
+      - aws ecr get-login-password --region $ECR_REGISTRY_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY_HOST
+      - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+      # Determine live image FQIN
+      - | #.sh
+        FQIN_WEB="${ECR_REGISTRY_HOST}/${ECR_REGISTRY_REPOSITORY_ROOT}/web:${ENVIRONMENT}-${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"
+        FQIN_APP="${ECR_REGISTRY_HOST}/${ECR_REGISTRY_REPOSITORY_ROOT}/app:${ENVIRONMENT}-${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}"
+
+  build:
+    commands:
+      - task docker:build:live FQIN_WEB=$FQIN_WEB FQIN_APP=$FQIN_APP
+
+  post_build:
+    commands:
+      - | #.sh
+        docker push $FQIN_WEB &
+        docker push $FQIN_APP &
+        wait
+
+      - mv compose.live.yaml compose.yaml
+
+artifacts:
+  files:
+    - compose.yaml

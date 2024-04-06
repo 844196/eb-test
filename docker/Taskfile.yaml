@@ -1,0 +1,26 @@
+# cspell:ignore FQIN
+---
+version: '3'
+
+tasks:
+  build:live:*:
+    requires:
+      vars:
+        - FQIN
+    cmd: docker build --file {{index .MATCH 0}}/Dockerfile --target live --tag {{.FQIN}} ..
+
+  build:live:
+    vars:
+      FQIN_WEB: '{{.ECR_REGISTRY_HOST}}/{{.ECR_REGISTRY_REPOSITORY_ROOT}}/web:{{.ENVIRONMENT}}-{{.COMMIT_HASH}}'
+      FQIN_APP: '{{.ECR_REGISTRY_HOST}}/{{.ECR_REGISTRY_REPOSITORY_ROOT}}/app:{{.ENVIRONMENT}}-{{.COMMIT_HASH}}'
+    deps:
+      - task: build:live:web
+        vars:
+          FQIN: '{{.FQIN_WEB}}'
+      - task: build:live:app
+        vars:
+          FQIN: '{{.FQIN_APP}}'
+    cmd: | #.sh
+      gojo web=$(gojo image="{{.FQIN_WEB}}") app=$(gojo image="{{.FQIN_APP}}") \
+        | gomplate -c .=stdin:///ctx.json -f ../compose.live.template.yaml \
+        | tee ../compose.live.yaml

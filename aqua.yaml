@@ -1,0 +1,7 @@
+registries:
+  - type: standard
+    ref: v4.158.0
+packages:
+  - name: go-task/task@v3.35.1
+  - name: hadolint/hadolint@v2.12.0
+  - name: hairyhenderson/gomplate@v3.11.7

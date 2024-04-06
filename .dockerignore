@@ -1,0 +1,10 @@
+.dockerignore
+.env
+.envrc
+.git
+.gitignore
+Taskfile.yaml
+aqua.yaml
+compose.live.template.yaml
+compose.live.yaml
+secret

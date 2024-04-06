@@ -1,0 +1,148 @@
+# code: language=nginx
+
+worker_processes ${NGINX_WORKER_PROCESSES};
+
+# (worker_processes * worker_connections * (2から4)) < ホストのファイルディスクリプタの上限値 になるように設定すること
+# SEE: https://qiita.com/tatsukoni/items/ba55eb3f7035c3941526#worker_rlimit_nofile
+worker_rlimit_nofile ${NGINX_WORKER_RLIMIT_NOFILE};
+
+events {
+  # エフェメラルポートの最大数より小さい値にすること
+  # また、worker_rlimit_nofile より小さい値にすること
+  worker_connections ${NGINX_WORKER_CONNECTIONS};
+}
+
+# /var/log/nginx/error.log は /dev/stderr へのシンボリックリンク
+error_log /var/log/nginx/error.log notice;
+
+pid /tmp/nginx.pid;
+
+http {
+  proxy_temp_path /tmp/proxy_temp;
+  client_body_temp_path /tmp/client_temp;
+  fastcgi_temp_path /tmp/fastcgi_temp;
+  uwsgi_temp_path /tmp/uwsgi_temp;
+  scgi_temp_path /tmp/scgi_temp;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  # LBのヘルスチェックはログに残さない
+  # SEE: https://qiita.com/homoluctus/items/7f81ef8e7d23f3c18ffe
+  map $http_user_agent $loggable {
+    ~ELB-HealthChecker 0;
+    default 1;
+  }
+
+  # CloudWatch Logs のタイムスタンプ形式に合わせる
+  # SEE: https://stackoverflow.com/questions/46492505/how-can-i-get-our-nginx-access-log-to-not-put-a-in-the-timezone-offset
+  map $time_iso8601 $time_aws {
+    ~(.*):(00) "$1$2";
+  }
+
+  log_format json escape=json '{"time": "$time_aws",'
+  '"host": "$remote_addr",'
+  '"vhost": "$host",'
+  '"user": "$remote_user",'
+  '"status": "$status",'
+  '"protocol": "$server_protocol",'
+  '"method": "$request_method",'
+  '"path": "$request_uri",'
+  '"req": "$request",'
+  '"size": "$body_bytes_sent",'
+  '"reqtime": "$request_time",'
+  '"apptime": "$upstream_response_time",'
+  '"ua": "$http_user_agent",'
+  '"forwardedfor": "$http_x_forwarded_for",'
+  '"forwardedproto": "$http_x_forwarded_proto",'
+  '"referrer": "$http_referer"}';
+
+  # /var/log/nginx/access.log は /dev/stdout へのシンボリックリンク
+  access_log /var/log/nginx/access.log json if=$loggable;
+
+  # nginxのバージョンをレスポンスヘッダーに含めない
+  server_tokens off;
+
+  # tcp_nodelay は tcp_nopush と同時に使用しても問題ない
+  # SEE: https://harukasan.hateblo.jp/entry/2016/01/25/170648
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+
+  # LBのアイドルタイムアウトより長くすること
+  # SEE:
+  #   * https://repost.aws/ja/knowledge-center/apache-backend-elb
+  #   * https://qiita.com/Taishikun0721/items/48711323d5cda6ae8dc7
+  keepalive_timeout 75;
+
+  server {
+    listen ${NGINX_LISTEN};
+    listen [::]:${NGINX_LISTEN};
+    server_name _;
+
+    # nginxにおけるドキュメントルート
+    root /opt/app/public;
+
+    # SEE: https://www.ipa.go.jp/security/vuln/websecurity/clickjacking.html
+    add_header X-Frame-Options "SAMEORIGIN";
+
+    # SEE: https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/X-Content-Type-Options
+    add_header X-Content-Type-Options "nosniff";
+
+    index index.php;
+
+    charset utf-8;
+
+    location / {
+      try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico {
+      access_log off;
+      log_not_found off;
+    }
+
+    location = /robots.txt {
+      access_log off;
+      log_not_found off;
+    }
+
+    error_page 404 /index.php;
+
+    location ~ [^/]\.php(/|$) {
+      fastcgi_pass ${NGINX_FASTCGI_PASS};
+
+      # FastCGIにおけるドキュメントルート
+      # SEE: https://zenn.dev/honda/scraps/4fba8235622704#comment-b69159b169acc4
+      root ${NGINX_FASTCGI_DOCUMENT_ROOT};
+
+      # SEE:
+      #   * https://stackoverflow.com/questions/30802025/what-is-fastcgi-index-in-nginx-used-for
+      #   * https://mailman.nginx.org/pipermail/nginx/2008-November/008311.html
+      fastcgi_index index.php;
+
+      # SEE: https://www.nginx.com/resources/wiki/start/topics/examples/phpfcgi/#notes
+      fastcgi_split_path_info ^(.+\.php)(/.+)$;
+      if (!-f $document_root$fastcgi_script_name) {
+        return 404;
+      }
+
+      # 意図しない設定の無効化を防ぐため "include fastcgi_params" -> "fastcgi_param ..." の順に記述すること
+      # SEE: https://qiita.com/kotarella1110/items/f1ad0bb40b84567cea66
+      include fastcgi_params;
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      fastcgi_param PATH_INFO $fastcgi_path_info;
+      fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;
+    }
+
+    # Apache向けに配置された .htaccess ファイルへのアクセスを禁止
+    location ~ /\.ht {
+      deny all;
+    }
+
+    # .well-known/ を除く全てのドットファイルへのアクセスを禁止
+    location ~ /\.(?!well-known).* {
+      deny all;
+    }
+  }
+}

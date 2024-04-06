@@ -1,0 +1,19 @@
+services:
+  web:
+    image: '{{ .web.image }}'
+    environment:
+      NGINX_WORKER_PROCESSES: ${WEB_NGINX_WORKER_PROCESSES:?}
+      NGINX_WORKER_RLIMIT_NOFILE: ${WEB_NGINX_WORKER_RLIMIT_NOFILE:?}
+      NGINX_WORKER_CONNECTIONS: ${WEB_NGINX_WORKER_CONNECTIONS:?}
+      NGINX_FASTCGI_PASS: app:9000
+      NGINX_FASTCGI_DOCUMENT_ROOT: /opt/app/public
+    ports:
+      - 80:8080
+    depends_on:
+      - app
+  app:
+    image: '{{ .app.image }}'
+    env_file:
+      - .env
+    expose:
+      - 9000
